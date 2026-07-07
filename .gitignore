@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.env
+.env*.local
+.vercel
+*.log
+.DS_Store
+
+# generated artifacts + private prep (not part of the shipped code)
+WRITEUP.html
+*.pdf
+ASSESSMENT_BRIEF.txt
+CHEATSHEET.md
+
+.vercel
+.github/
