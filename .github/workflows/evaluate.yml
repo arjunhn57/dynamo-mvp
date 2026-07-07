@@ -1,0 +1,19 @@
+name: Autonomous evaluation
+
+# Keeps CoolSip's campaign live even when nobody has the dashboard open — which
+# is the product's whole promise. Vercel's Hobby plan caps cron at once/day, so
+# this pings the public, idempotent evaluate endpoint every 15 minutes for free.
+# (A production system would use a dedicated scheduler or a queue; this is the
+# zero-cost stand-in that makes "it runs itself" actually true.)
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/evaluate
+        run: curl -fsS "https://dynamo-murex.vercel.app/api/evaluate" -o /dev/null -w "evaluate -> %{http_code}\n"
