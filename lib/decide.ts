@@ -37,7 +37,7 @@ export function decide(weather: Weather, opts?: { pin?: CreativeCode }): Decisio
   if (opts?.pin) {
     return {
       creative: opts.pin,
-      reason: "Pinned by CoolSip (manual override)",
+      reason: "Pinned by your team (manual override)",
       confident: true,
     };
   }
@@ -94,7 +94,7 @@ export function decide(weather: Weather, opts?: { pin?: CreativeCode }): Decisio
   // "0.1mm rain" never sits next to the word "dry" — a CMO would rightly question that.
   const reason =
     weather.precipMm > 0
-      ? `Only a trace of rain (${weather.precipMm}mm, under the ${RAIN_MM}mm mark) → Refresh anytime`
+      ? `Only a trace of rain (${weather.precipMm}mm, not over the ${RAIN_MM}mm mark) → Refresh anytime`
       : `Mild and dry — ${weather.tempC}°C → Refresh anytime`;
   return { creative: "CR-NORM", reason, confident: true };
 }

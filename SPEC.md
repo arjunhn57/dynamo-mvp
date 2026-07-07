@@ -44,7 +44,7 @@ Pure function `decide(weather, {pin}) -> {creative, reason, confident}`. Precede
 3. **Rain beats heat.** Both can be true (hot wet monsoon). Iced-drink ad in rain is worse for the brand than hot-drink ad in heat → **wet wins ties.**
 4. Else hot (`≥35°C`) → CR-HOT; else → CR-NORM.
 
-Thresholds (`HOT_C=35`, `RAIN_MM=0`, `STALE_MINUTES=15`) are centralised and **challenged** in the write-up (35°C ignores humidity; "any drizzle" is noisy).
+Thresholds (`HOT_C=35`, `RAIN_MM=0.2`, `STALE_MINUTES=15`) are centralised and **challenged** in the write-up (35°C ignores humidity → feels-like; a 0.2mm floor filters trace drizzle).
 
 **Override precedence in the loop:** `global.hold` → freeze everything · `city.hold` → freeze that city · `city.pin` → force creative · else → `decide(weather)`.
 
@@ -72,7 +72,7 @@ return summary { cities_fetched, api_calls, changes, errors }
 - **On dashboard load** — the loop runs on each view, cheap because of the 15-min cache → "when the CMO looks, it's fresh."
 - **"Run now" button** — manual immediate eval.
 - **Client poll** every ~3 min while the tab is open — live monitoring.
-- **`vercel.json` cron** included (daily on Hobby, per-minute on Pro) as a heartbeat + to show the production pattern.
+- **Autonomous cron** — a GitHub Actions workflow pings `/api/evaluate` every 15 min, so it runs itself with no tab open (Vercel Hobby's own cron is daily-only).
 - *Production:* a real scheduler (Vercel Pro cron @ 10–15 min, or an external cron / queue worker). Called out as a tradeoff.
 
 ---
@@ -82,8 +82,8 @@ return summary { cities_fetched, api_calls, changes, errors }
 UI quality doesn't matter; clarity does. Components:
 - **4 city cards:** temp, precip, data age (green/amber if stale), the live creative, the one-line *why*, and a low-confidence warning when we fell back.
 - **Line-items table (12 rows):** state badge, creative, bid, budget, last-changed.
-- **Change log:** newest transitions first — `LI-001 · Mumbai · paused→active · "Hot 36°C ≥ 35°C → Beat the heat" · 14:32`.
-- **CMO controls:** global pause, per-city hold, per-city pin creative, clear, "Run now."
+- **Change log:** newest transitions first — `LI-002 · Mumbai · paused→active · "Raining now — 0.9mm → Rainy day pick-me-up" · 2:19 pm IST`.
+- **CMO controls:** freeze automation, per-city hold, per-city pin creative, "Run now."
 
 ---
 
@@ -97,7 +97,7 @@ UI quality doesn't matter; clarity does. Components:
 | Data goes **stale** (>15 min) | flip to generic + amber age badge | adaptive refresh: volatile/active cities more often |
 | Line item **mid-impression** when state flips | flip applies to *next* auction; in-flight impression completes | state is "eligible to serve," not "serving"; ad server owns the live auction |
 | **All Mumbai paused** (CMO panic) | it can't happen — generic is the floor; one creative is always active per city | dashboard explainer + "why paused" on hover |
-| Weather flaps around the threshold | *(known weakness — see write-up)* one drizzle flips the ad | hysteresis / debounce (require N min sustained) |
+| Weather flaps around the threshold | 0.2mm floor filters trace drizzle; flapping at the boundary still possible | hysteresis / debounce (require N min sustained) |
 
 ---
 
@@ -116,7 +116,7 @@ Weather is just one **Signal**. Generalise so a new trigger (cricket, stocks, AQ
 
 ## Deployment
 
-- **Host:** Vercel (new project, free Hobby — unlimited projects, so the user's existing site is unaffected).
+- **Host:** Vercel (free Hobby).
 - **DB:** Neon serverless Postgres (free; separate from any existing project). `DATABASE_URL` env var.
 - **Access for invited users:** a light shared-passcode gate on the dashboard (env `DASHBOARD_PASSCODE`) so it's not fully public but trivial to share. (Auth depth is a documented cut.)
 - **Schema+seed:** idempotent `CREATE TABLE IF NOT EXISTS` + seed the 12 line items if empty, run via `/api/setup` (and on first evaluate).
@@ -135,13 +135,13 @@ Retries + circuit breaker + provider fallback · per-city adaptive refresh · hy
 
 ---
 
-## Build Plan (phases — inline execution this session)
+## Build Plan (phases)
 
 - [x] **P0 — Foundation:** package.json, tsconfig, next config, `lib/decide.ts`, `lib/weather.ts`. *(done)*
-- [ ] **P1 — Data layer:** `lib/db.ts` (Neon client, schema, seed, typed queries). Deliverable: tables + 12 seeded rows.
-- [ ] **P2 — Core loop:** `app/api/evaluate/route.ts` + `app/api/setup/route.ts`. Deliverable: one call fetches weather, flips states, logs transitions.
-- [ ] **P3 — Decision test:** `lib/decide.test.ts` — the engine is the heart, so it gets real tests (pin wins, fail-safe, rain>heat, thresholds). Deliverable: green tests, run with `node --test`.
-- [ ] **P4 — Dashboard:** `app/page.tsx` + `app/globals.css` + control components + `app/api/override/route.ts`. Deliverable: CMO can see + override.
-- [ ] **P5 — Cron + access:** `vercel.json` cron, passcode gate, `.env.example`. 
-- [ ] **P6 — Deploy:** Neon DB + Vercel, live URL, smoke test.
-- [ ] **P7 — Docs:** `WRITEUP.md` (≤3pp) + `CHEATSHEET.md` (defend every decision in the call) + `README.md`.
+- [x] **P1 — Data layer:** `lib/db.ts` (Neon client, schema, seed, typed queries). Deliverable: tables + 12 seeded rows.
+- [x] **P2 — Core loop:** `app/api/evaluate/route.ts` + `app/api/setup/route.ts`. Deliverable: one call fetches weather, flips states, logs transitions.
+- [x] **P3 — Decision test:** `lib/decide.test.ts` — the engine is the heart, so it gets real tests (pin wins, fail-safe, rain>heat, thresholds). Deliverable: green tests, run with `node --test`.
+- [x] **P4 — Dashboard:** `app/page.tsx` + `app/globals.css` + control components + `app/api/override/route.ts`. Deliverable: CMO can see + override.
+- [x] **P5 — Cron + access:** `vercel.json` cron, passcode gate, `.env.example`. 
+- [x] **P6 — Deploy:** Neon DB + Vercel, live URL, smoke test.
+- [x] **P7 — Docs:** `WRITEUP.md` (≤3pp) + `README.md` + `SPEC.md`.

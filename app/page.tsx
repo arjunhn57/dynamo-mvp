@@ -11,27 +11,27 @@ type Cond = "hot" | "rain" | "normal" | "held";
 function WxIcon({ cond }: { cond: Cond }) {
   if (cond === "hot")
     return (
-      <svg className="icon" viewBox="0 0 32 32" fill="none" stroke="#d96f0a" strokeWidth="2" strokeLinecap="round">
+      <svg className="icon" aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="#d96f0a" strokeWidth="2" strokeLinecap="round">
         <circle cx="16" cy="16" r="5.5" fill="#d96f0a" stroke="none" />
         <path d="M16 3.5v3.5M16 25v3.5M3.5 16h3.5M25 16h3.5M7.2 7.2l2.4 2.4M22.4 22.4l2.4 2.4M24.8 7.2l-2.4 2.4M9.6 22.4l-2.4 2.4" />
       </svg>
     );
   if (cond === "rain")
     return (
-      <svg className="icon" viewBox="0 0 32 32" fill="none">
+      <svg className="icon" aria-hidden="true" viewBox="0 0 32 32" fill="none">
         <path d="M9.5 18a5 5 0 0 1 .6-9.96A6.5 6.5 0 0 1 22.5 9.4a4.5 4.5 0 0 1 1 8.6H9.5z" fill="#c7ddf2" stroke="#2778bf" strokeWidth="1.6" />
         <path d="M11.5 21.5l-1.5 3.5M16.5 21.5l-1.5 3.5M21.5 21.5l-1.5 3.5" stroke="#2778bf" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   if (cond === "held")
     return (
-      <svg className="icon" viewBox="0 0 32 32" fill="none" stroke="#79839a" strokeWidth="2" strokeLinecap="round">
+      <svg className="icon" aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="#79839a" strokeWidth="2" strokeLinecap="round">
         <rect x="9" y="15" width="14" height="10" rx="2" fill="#e4e9f0" />
         <path d="M12 15v-3a4 4 0 0 1 8 0v3" />
       </svg>
     );
   return (
-    <svg className="icon" viewBox="0 0 32 32" fill="none">
+    <svg className="icon" aria-hidden="true" viewBox="0 0 32 32" fill="none">
       <circle cx="12" cy="12" r="4.5" fill="#e6b34a" />
       <path d="M12.5 22a4.5 4.5 0 0 1 .4-8.98A5.9 5.9 0 0 1 23.5 13.5a4 4 0 0 1 .5 8.5H12.5z" fill="#e2ece5" stroke="#4a8a68" strokeWidth="1.6" />
     </svg>
@@ -40,7 +40,7 @@ function WxIcon({ cond }: { cond: Cond }) {
 
 function BrandMark() {
   return (
-    <svg viewBox="0 0 32 32" fill="none">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
       <circle cx="12" cy="13" r="5" fill="#f0a83a" />
       <path d="M22 16c-2.4 2.6-2.4 6 0 7 2.4-1 2.4-4.4 0-7z" fill="#4aa3e6" />
     </svg>
@@ -61,13 +61,14 @@ export default async function Page() {
   try {
     ranAt = (await runEvaluation()).ran_at;
   } catch (e) {
-    setupError = e instanceof Error ? e.message : String(e);
+    console.error("dashboard evaluation failed", e);
+    setupError = "Couldn't reach the database.";
   }
 
   if (setupError) {
     return (
       <main className="wrap">
-        <h1>DynaMo</h1>
+        <h1 className="wordmark">DynaMo</h1>
         <div className="errcard">
           <b>Not configured yet.</b>
           <p className="dim">{setupError}</p>
@@ -99,7 +100,7 @@ export default async function Page() {
     let reason: string;
     let confident = true;
     if (held) {
-      reason = "Frozen by CoolSip — automation paused";
+      reason = "On hold — automation paused by your team";
     } else {
       const d = decide(weather, { pin: pin ?? undefined });
       reason = d.reason;
@@ -135,17 +136,18 @@ export default async function Page() {
       </header>
 
       {controls.global.hold && (
-        <div className="banner">⏸ Automation is frozen by CoolSip — creatives stay as they are until you resume.</div>
+        <div className="banner">⏸ Automation is on hold — creatives stay as they are until you resume.</div>
       )}
 
       <Controls cities={cities} global={controls.global} byCity={controls.byCity} />
 
+      <h2 className="sec-title">Cities · live decision per city</h2>
       <section className="cities">
         {view.map((v) => (
           <div key={v.city} className={`city ${v.cond}`}>
             <div className="toprow">
               <div>
-                <div className="name">{v.city}</div>
+                <h3 className="name">{v.city}</h3>
                 {(v.held || v.pin) && (
                   <div className="tags">
                     {v.held && <span className="tag held">HELD</span>}
@@ -160,7 +162,7 @@ export default async function Page() {
               <small>°C</small>
             </div>
             <div className="subwx">{v.weather.precipMm ?? "—"} mm rain · last hour</div>
-            <div className={"age" + (v.warn ? " warn" : "")}>{v.ageMin != null ? `updated ${v.ageMin}m ago` : "no reading"}{v.warn && " · stale"}</div>
+            <div className={"age" + (v.warn ? " warn" : "")}>{v.ageMin != null ? `updated ${v.ageMin}m ago` : "no reading"}{v.weather.stale && " · stale"}{!v.weather.ok && " · weather check failed"}</div>
             <div className="creative">
               <span className="swatch" />
               {v.active ? v.active.creative_name : "—"}

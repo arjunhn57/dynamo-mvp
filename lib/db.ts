@@ -147,15 +147,23 @@ export async function upsertWeather(
         fetched_at = EXCLUDED.fetched_at, ok = EXCLUDED.ok`;
 }
 
-// Conditional update: writes (and reports true) only when the state actually
-// changes. Postgres row-locking serialises concurrent evaluate runs, so of two
-// racing runs exactly one flips a given line item — the other matches zero rows.
-// That keeps the transition log free of duplicate / no-op entries.
-export async function setLineItemState(id: string, state: "active" | "paused"): Promise<boolean> {
-  const rows = (await sql`UPDATE line_items SET state = ${state}
-    WHERE line_item_id = ${id} AND state <> ${state}
-    RETURNING line_item_id`) as { line_item_id: string }[];
-  return rows.length > 0;
+// Apply a city's decision in ONE statement: every line item in the city goes
+// active if it's the chosen creative, paused otherwise. A single UPDATE is a
+// single implicit transaction, so the whole city flips atomically — even under
+// concurrent evaluate runs (cron + poll + on-load) the city can never be left
+// with two active creatives or zero. The WHERE clause touches only rows that
+// actually change, and RETURNING yields exactly the transitions to log (in a
+// two-state world, from_state is the opposite of the returned state).
+export async function applyCityDecision(
+  city: string,
+  creative: string,
+): Promise<{ line_item_id: string; state: "active" | "paused" }[]> {
+  return (await sql`
+    UPDATE line_items
+    SET state = CASE WHEN creative_id = ${creative} THEN 'active' ELSE 'paused' END
+    WHERE city = ${city}
+      AND state <> CASE WHEN creative_id = ${creative} THEN 'active' ELSE 'paused' END
+    RETURNING line_item_id, state`) as { line_item_id: string; state: "active" | "paused" }[];
 }
 
 export async function insertTransition(

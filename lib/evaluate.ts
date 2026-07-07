@@ -5,7 +5,7 @@ import {
   getLineItems,
   getWeatherCache,
   upsertWeather,
-  setLineItemState,
+  applyCityDecision,
   insertTransition,
   getControls,
 } from "./db";
@@ -39,7 +39,7 @@ export async function runEvaluation(): Promise<EvalResult> {
   const refreshed = await Promise.all(
     [...cities.entries()].map(async ([city, loc]) => {
       const c = cache[city];
-      if (c && c.ok && !isStale(c.fetched_at)) {
+      if (c && c.ok && c.temp_c !== null && !isStale(c.fetched_at)) {
         const w: Weather = {
           tempC: c.temp_c,
           precipMm: c.precip_mm,
@@ -73,22 +73,12 @@ export async function runEvaluation(): Promise<EvalResult> {
     const weather: Weather = { ...w, stale: w.ok ? isStale(w.fetchedAt) : false };
     const d = decide(weather, { pin });
 
-    for (const li of lineItems) {
-      if (li.city !== city) continue;
-      const desired = li.creative_id === d.creative ? "active" : "paused";
-      if (li.state !== desired) {
-        const changed = await setLineItemState(li.line_item_id, desired);
-        if (changed) {
-          await insertTransition({
-            line_item_id: li.line_item_id,
-            city,
-            from_state: li.state,
-            to_state: desired,
-            reason: d.reason,
-          });
-          changes.push({ line_item_id: li.line_item_id, city, to: desired, reason: d.reason });
-        }
-      }
+    // One atomic statement flips the whole city; RETURNING gives just the real changes to log.
+    const flipped = await applyCityDecision(city, d.creative);
+    for (const row of flipped) {
+      const from_state = row.state === "active" ? "paused" : "active";
+      await insertTransition({ line_item_id: row.line_item_id, city, from_state, to_state: row.state, reason: d.reason });
+      changes.push({ line_item_id: row.line_item_id, city, to: row.state, reason: d.reason });
     }
   }
 

@@ -24,13 +24,15 @@ export function Controls({ cities, global, byCity }: Props) {
 
   useEffect(() => {
     if (!auto) return;
-    const id = setInterval(() => void run(), 180_000);
+    const id = setInterval(() => void run(true), 180_000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto]);
 
-  async function run() {
-    setBusy(true);
+  // silent = the 3-min background poll: refresh data without disabling the whole
+  // control board, so a keyboard user never loses focus mid-task.
+  async function run(silent = false) {
+    if (!silent) setBusy(true);
     setErr(null);
     try {
       const res = await fetch("/api/evaluate", { cache: "no-store" });
@@ -39,7 +41,7 @@ export function Controls({ cities, global, byCity }: Props) {
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setBusy(false);
+      if (!silent) setBusy(false);
     }
   }
 
@@ -65,14 +67,14 @@ export function Controls({ cities, global, byCity }: Props) {
   return (
     <div className="controls">
       <div className="ctrow">
-        <button className="primary" onClick={run} disabled={busy}>
+        <button className="primary" onClick={() => run()} disabled={busy}>
           {busy ? "Working…" : "Run now"}
         </button>
         <label className="switch">
           <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
           Auto-run every 3 min
         </label>
-        {err && <span className="err-inline">{err}</span>}
+        {err && <span className="err-inline" role="status">{err}</span>}
         <span className="spacer" />
         {global.hold ? (
           <button onClick={() => override("global", false, null)} disabled={busy}>
@@ -89,12 +91,12 @@ export function Controls({ cities, global, byCity }: Props) {
         const c = byCity[city] ?? { hold: false, pin: null };
         const isAuto = !c.hold && !c.pin;
         return (
-          <div className="ctrow" key={city}>
+          <div className="ctrow" role="group" aria-label={city} key={city}>
             <span className="cty">{city}</span>
-            <button className={isAuto ? "on" : ""} onClick={() => override(city, false, null)} disabled={busy}>
+            <button className={isAuto ? "on" : ""} aria-pressed={isAuto} onClick={() => override(city, false, null)} disabled={busy}>
               Auto
             </button>
-            <button className={c.hold ? "on" : ""} onClick={() => override(city, true, null)} disabled={busy}>
+            <button className={c.hold ? "on" : ""} aria-pressed={c.hold} onClick={() => override(city, true, null)} disabled={busy}>
               Hold
             </button>
             <span className="dim">pin</span>
@@ -102,6 +104,8 @@ export function Controls({ cities, global, byCity }: Props) {
               <button
                 key={p.code}
                 className={`${p.cls}${c.pin === p.code ? " on" : ""}`}
+                aria-pressed={c.pin === p.code}
+                aria-label={`Pin ${p.label} for ${city}`}
                 onClick={() => override(city, false, p.code)}
                 disabled={busy}
               >

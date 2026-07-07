@@ -5,12 +5,12 @@ between three creatives based on **live weather**, every change is logged with a
 reason, and the CMO gets a dashboard she can **see, trust, and override**.
 
 **Live:** https://dynamo-murex.vercel.app
-**Design + reasoning:** [`SPEC.md`](./SPEC.md) · **Write-up:** [`WRITEUP.md`](./WRITEUP.md) · **Call prep:** [`CHEATSHEET.md`](./CHEATSHEET.md)
+**Design + reasoning:** [`SPEC.md`](./SPEC.md) · **Write-up:** [`WRITEUP.md`](./WRITEUP.md)
 
 ## How it works
 
 ```
-trigger (dashboard load / "Run now" / 3-min poll / daily cron)
+trigger (dashboard load / "Run now" / 3-min poll / 15-min GitHub Actions cron)
   -> for each UNIQUE city: fetch weather if cache > 15 min old   (Open-Meteo)
   -> decide(weather, override) -> which creative should be live  (pure fn)
   -> flip line-item states that changed, log each transition + why
@@ -35,7 +35,7 @@ npm install
 cp .env.example .env          # set DATABASE_URL (Neon or Vercel Postgres)
 npm run dev                   # http://localhost:3000
 # first run auto-creates tables + seeds the 12 line items (or hit /api/setup)
-npx tsx --test lib/decide.test.ts   # the decision-engine tests (6)
+npx tsx --test lib/decide.test.ts   # the decision-engine tests (8)
 ```
 
 ## Endpoints
@@ -64,5 +64,5 @@ app/page.tsx      dashboard (server component)
 app/Controls.tsx  CMO controls (client)
 app/api/*         evaluate / override / setup
 middleware.ts     optional passcode gate
-vercel.json       cron (daily on Hobby; 15-min on Pro)
+.github/workflows autonomous evaluate cron, every 15 min (GitHub Actions)
 ```

@@ -5,6 +5,9 @@ import type { CreativeCode } from "@/lib/decide";
 export const dynamic = "force-dynamic";
 
 const VALID_PINS: CreativeCode[] = ["CR-HOT", "CR-RAIN", "CR-NORM"];
+// Only "global" or a real campaign city may be stored — an allowlist so a stray
+// or hostile scope can't pile unbounded permanent rows into the controls table.
+const VALID_SCOPES = ["global", "Mumbai", "Delhi", "Bangalore", "Chennai"];
 
 // The CMO's override switch.
 //   { scope: "global",  hold: true }            -> freeze the whole campaign
@@ -20,10 +23,11 @@ export async function POST(req: NextRequest) {
   }
   try {
     const scope = String(body.scope ?? "").trim();
-    if (!scope) {
-      return NextResponse.json({ ok: false, error: "scope is required" }, { status: 400 });
+    if (!VALID_SCOPES.includes(scope)) {
+      return NextResponse.json({ ok: false, error: "unknown scope" }, { status: 400 });
     }
-    const hold = Boolean(body.hold);
+    // Strict boolean — a string like "false" must not coerce into a freeze.
+    const hold = body.hold === true;
     // Hold wins over pin: freezing a city clears any forced creative, so the two
     // controls can never conflict. "global" can only freeze.
     const pin: CreativeCode | null =
