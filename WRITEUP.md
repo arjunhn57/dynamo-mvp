@@ -1,6 +1,6 @@
 # DynaMo MVP — Write-up
 
-**Arjun H N** · Live: **https://dynamo-murex.vercel.app** · Code + SPEC.md in the repo.
+**Arjun H N** · Live: **https://dynamo-murex.vercel.app** · Repo: **github.com/arjunhn57/dynamo-mvp**
 
 *Access note: the URL is unlisted for the demo. A one-env-var HTTP Basic Auth gate (`middleware.ts`, `DASHBOARD_PASSCODE`) can lock it to a shared passcode — left off so you can click straight in.*
 
@@ -20,7 +20,7 @@
 
 1. **No real auth — a shared passcode, not per-user login.** Chose to ship visibility fast; a demo doesn't need identity. Prod: SSO + per-user audit (who overrode what, when).
 2. **No budget pacing.** `bid` and `daily_budget` are stored and shown but not spent against. The brief's core loop is weather→state; pacing is a whole subsystem. Prod: a spend tracker that auto-pauses a line item on budget exhaustion — and I'd note that **budget, not weather, is the *other* reason a line item should pause**, which the model should treat as a first-class cause.
-3. **Automation cadence on free Vercel.** Hobby caps cron at daily, so live freshness comes from evaluate-on-load + an on-by-default 3-minute client poll + Run-now; the daily cron is only a heartbeat. Prod: a 15-minute cron (Pro), or a proper job queue at 200-city scale.
+3. **Automation cadence on free Vercel.** Hobby caps its *own* cron at daily, so I run the autonomous trigger off-platform — a free external cron pings the public, idempotent evaluate endpoint every 15 minutes, so the campaign stays current even when no one has a tab open (evaluate-on-load + a 3-min poll cover the watched case). Prod: a dedicated scheduler or queue at 200-city scale.
 
 ## Three edge cases my MVP handles badly (and the fix)
 
