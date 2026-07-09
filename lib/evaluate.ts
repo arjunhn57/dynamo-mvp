@@ -21,7 +21,11 @@ export type EvalResult = {
 // The core loop. Idempotent and trigger-agnostic: the dashboard load, the
 // "Run now" button, the client poll, and the cron all call this. The 15-minute
 // per-city weather cache is what makes calling it often both safe and cheap.
-export async function runEvaluation(): Promise<EvalResult> {
+export async function runEvaluation(opts?: { failWeather?: boolean }): Promise<EvalResult> {
+  // Demo switch (?failWeather=1): make the provider look offline so the fail-safe
+  // can be shown on demand. It must also bypass the cache — a fresh per-city
+  // reading would otherwise mask even a real outage for a full 15 minutes.
+  const failWeather = opts?.failWeather === true;
   await initSchema();
   const [lineItems, cache, controls] = await Promise.all([
     getLineItems(),
@@ -39,7 +43,7 @@ export async function runEvaluation(): Promise<EvalResult> {
   const refreshed = await Promise.all(
     [...cities.entries()].map(async ([city, loc]) => {
       const c = cache[city];
-      if (c && c.ok && c.temp_c !== null && !isStale(c.fetched_at)) {
+      if (!failWeather && c && c.ok && c.temp_c !== null && !isStale(c.fetched_at)) {
         const w: Weather = {
           tempC: c.temp_c,
           precipMm: c.precip_mm,
@@ -49,7 +53,9 @@ export async function runEvaluation(): Promise<EvalResult> {
         };
         return { city, w, fetched: false };
       }
-      const w = await fetchWeather(loc.lat, loc.lon);
+      const w: Weather = failWeather
+        ? { tempC: null, precipMm: null, fetchedAt: new Date().toISOString(), stale: false, ok: false }
+        : await fetchWeather(loc.lat, loc.lon);
       try {
         await upsertWeather(city, w.tempC, w.precipMm, w.fetchedAt, w.ok);
       } catch (e) {
@@ -57,7 +63,8 @@ export async function runEvaluation(): Promise<EvalResult> {
         // in-memory reading and carry on.
         console.error("weather cache write failed for", city, e);
       }
-      return { city, w, fetched: true };
+      // In the forced-failure demo no request leaves the server, so it is not an API call.
+      return { city, w, fetched: !failWeather };
     }),
   );
   const apiCalls = refreshed.filter((r) => r.fetched).length;

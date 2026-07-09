@@ -55,11 +55,14 @@ const CREATIVE_COND: Record<string, Cond> = { "CR-HOT": "hot", "CR-RAIN": "rain"
 const IST_TIME: Intl.DateTimeFormatOptions = { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" };
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", IST_TIME) + " IST";
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams?: { failWeather?: string } }) {
+  // ?failWeather=1 makes the weather provider look offline, so the fail-safe can be
+  // shown on demand. The 15-minute per-city cache would otherwise mask a real outage.
+  const failWeather = searchParams?.failWeather === "1";
   let ranAt: string | null = null;
   let setupError: string | null = null;
   try {
-    ranAt = (await runEvaluation()).ran_at;
+    ranAt = (await runEvaluation({ failWeather })).ran_at;
   } catch (e) {
     console.error("dashboard evaluation failed", e);
     setupError = "Couldn't reach the database.";
@@ -134,6 +137,12 @@ export default async function Page() {
           </div>
         </div>
       </header>
+
+      {failWeather && (
+        <div className="banner">
+          🧪 Demo mode — the weather provider is being forced offline. Every city falls back to the safe generic.
+        </div>
+      )}
 
       {controls.global.hold && (
         <div className="banner">⏸ Automation is on hold — creatives stay as they are until you resume.</div>

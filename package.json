@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "npx --yes tsx --test lib/decide.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
