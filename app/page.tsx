@@ -94,9 +94,13 @@ export default async function Page({ searchParams }: { searchParams?: { failWeat
   const cities = [...new Set(items.map((i) => i.city))];
   const view = cities.map((city) => {
     const c = cache[city];
-    const weather: Weather = c
-      ? { tempC: c.temp_c, precipMm: c.precip_mm, fetchedAt: c.fetched_at, ok: c.ok, stale: c.ok ? isStale(c.fetched_at) : false }
-      : { tempC: null, precipMm: null, fetchedAt: new Date().toISOString(), ok: false, stale: false };
+    // In the forced-outage demo the cards must show the outage, not the last cached
+    // reading — otherwise the banner and the cards contradict each other on screen.
+    const weather: Weather = failWeather
+      ? { tempC: null, precipMm: null, fetchedAt: new Date().toISOString(), ok: false, stale: false }
+      : c
+        ? { tempC: c.temp_c, precipMm: c.precip_mm, fetchedAt: c.fetched_at, ok: c.ok, stale: c.ok ? isStale(c.fetched_at) : false }
+        : { tempC: null, precipMm: null, fetchedAt: new Date().toISOString(), ok: false, stale: false };
     const held = controls.global.hold || (controls.byCity[city]?.hold ?? false);
     const pin = controls.byCity[city]?.pin ?? null;
     const active = items.find((i) => i.city === city && i.state === "active");
@@ -110,7 +114,7 @@ export default async function Page({ searchParams }: { searchParams?: { failWeat
       confident = d.confident;
     }
     const cond: Cond = held ? "held" : active ? CREATIVE_COND[active.creative_id] : "normal";
-    const ageMin = c ? Math.round((Date.now() - new Date(c.fetched_at).getTime()) / 60000) : null;
+    const ageMin = failWeather || !c ? null : Math.round((Date.now() - new Date(c.fetched_at).getTime()) / 60000);
     return { city, weather, held, pin, active, reason, confident, cond, ageMin, warn: weather.stale || !weather.ok };
   });
 

@@ -57,7 +57,9 @@ export async function runEvaluation(opts?: { failWeather?: boolean }): Promise<E
         ? { tempC: null, precipMm: null, fetchedAt: new Date().toISOString(), stale: false, ok: false }
         : await fetchWeather(loc.lat, loc.lon);
       try {
-        await upsertWeather(city, w.tempC, w.precipMm, w.fetchedAt, w.ok);
+        // The demo switch must never corrupt the real cache — skip the write so a
+        // normal reload recovers immediately from the last good reading.
+        if (!failWeather) await upsertWeather(city, w.tempC, w.precipMm, w.fetchedAt, w.ok);
       } catch (e) {
         // One city's cache-write blip must not fail the whole run — use the
         // in-memory reading and carry on.
